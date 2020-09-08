@@ -1,66 +1,46 @@
 const express = require('express');
 const app = express();
+const connectDB = require("./db/connection");
+const User = require("./models/users");
+const mongoose = require('mongoose');
 
-const users = [
-    {id:1, name: 'User 1'},
-    {id:2, name: 'User 2'},
-    {id:3, name: 'User 3'},
-    {id:4, name: 'User 4'},
-    {id:5, name: 'User 5'},
-    {id:6, name: 'User 6'},
-    {id:7, name: 'User 7'},
-    {id:8, name: 'User 8'},
-    {id:9, name: 'User 9'},
-    {id:10, name: 'User 10'},
-    {id:11, name: 'User 11'},
-    {id:12, name: 'User 12'},
-    {id:13, name: 'User 13'},
-    {id:14, name: 'User 14'},
-    {id:15, name: 'User 15'},
-    {id:16, name: 'User 16'},
-    {id:17, name: 'User 17'},
-    {id:18, name: 'User 18'},
-]
+connectDB();
+const db = mongoose.connection
+db.once('open', async()=>{
+    if(await User.countDocuments().exec() > 0) return;
 
-const posts = [
-    {id:1, name: 'post 1'},
-    {id:2, name: 'post 2'},
-    {id:3, name: 'post 3'},
-    {id:4, name: 'post 4'},
-    {id:5, name: 'post 5'},
-    {id:6, name: 'post 6'},
-    {id:7, name: 'post 7'},
-    {id:8, name: 'post 8'},
-    {id:9, name: 'post 9'},
-    {id:10, name: 'post 10'},
-    {id:11, name: 'post 11'},
-    {id:12, name: 'post 12'},
-    {id:13, name: 'post 13'},
-    {id:14, name: 'post 14'},
-    {id:15, name: 'post 15'},
-    {id:16, name: 'post 16'},
-    {id:17, name: 'post 17'},
-    {id:18, name: 'post 18'},
-]
-
-app.get('/posts', paginatedResults(posts), (req, res)=>{
-    res.json(res.paginatedResults)
+    Promise.all([
+        User.create({name: 'User 1'}),
+        User.create({name: 'User 2'}),
+        User.create({name: 'User 3'}),
+        User.create({name: 'User 4'}),
+        User.create({name: 'User 5'}),
+        User.create({name: 'User 6'}),
+        User.create({name: 'User 7'}),
+        User.create({name: 'User 8'}),
+        User.create({name: 'User 9'}),
+        User.create({name: 'User 10'}),
+        User.create({name: 'User 11'}),
+    ]).then(()=>{
+        console.log("Added Users")
+    })
 })
 
-app.get('/users', paginatedResults(users) ,(req, res)=>{
+app.get('/users', paginatedResults(User) ,(req, res)=>{
     res.json(res.paginatedResults);
 })
 
 function paginatedResults(model){
-    return(req, res, next)=>{
+    return async(req, res, next)=>{
         const page = req.query.page;
-        const limit = req.query.limit;
+        let limit = req.query.limit;
+        limit = parseInt(limit);
 
         const startIndex = (page - 1)*limit;
         const endIndex = page * limit;
 
         const results = {};
-        if(endIndex < model.length){
+        if(endIndex < await model.countDocuments().exec()){
             results.next = {
                 page: page+1,
                 limit: limit
@@ -73,11 +53,14 @@ function paginatedResults(model){
                 limit: limit
             }
         }   
-
-        results.results = model.slice(startIndex, endIndex);
-        // below results is the final reult, including next and prev
-        res.paginatedResults = results;
-        next();
+        try{
+            results.results = await model.find().limit(limit).skip(startIndex).exec();
+            // below results is the final reult, including next and prev
+            res.paginatedResults = results;
+            next();
+        }catch(e){console.log(e)}
+        
+        
     }
 }
 
